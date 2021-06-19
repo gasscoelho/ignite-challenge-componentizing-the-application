@@ -1,95 +1,56 @@
-import { useEffect, useState } from 'react';
+import "./styles/global.scss";
 
-import { Button } from './components/Button';
-import { MovieCard } from './components/MovieCard';
+import { useCallback, useEffect, useState } from "react";
 
-// import { SideBar } from './components/SideBar';
-// import { Content } from './components/Content';
+import { api } from "./services/api";
 
-import { api } from './services/api';
+import IGenre from "./dtos/GenreDTO";
+import IMovie from "./dtos/MovieDTO";
 
-import './styles/global.scss';
-
-import './styles/sidebar.scss';
-import './styles/content.scss';
-
-interface GenreResponseProps {
-  id: number;
-  name: 'action' | 'comedy' | 'documentary' | 'drama' | 'horror' | 'family';
-  title: string;
-}
-
-interface MovieProps {
-  imdbID: string;
-  Title: string;
-  Poster: string;
-  Ratings: Array<{
-    Source: string;
-    Value: string;
-  }>;
-  Runtime: string;
-}
+import { SideBar } from "./components/SideBar";
+import { Content } from "./components/Content";
 
 export function App() {
   const [selectedGenreId, setSelectedGenreId] = useState(1);
+  const [genres, setGenres] = useState<IGenre[]>([]);
+  const [movies, setMovies] = useState<IMovie[]>([]);
+  const [selectedGenre, setSelectedGenre] = useState<IGenre>({} as IGenre);
 
-  const [genres, setGenres] = useState<GenreResponseProps[]>([]);
-
-  const [movies, setMovies] = useState<MovieProps[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState<GenreResponseProps>({} as GenreResponseProps);
-
-  useEffect(() => {
-    api.get<GenreResponseProps[]>('genres').then(response => {
+  function fetchGenres() {
+    api.get<IGenre[]>("genres").then((response) => {
       setGenres(response.data);
     });
+  }
+
+  function fetchMoviesByGenre(genreId: number) {
+    api.get<IMovie[]>(`movies/?Genre_id=${genreId}`).then((response) => {
+      setMovies(response.data);
+    });
+  }
+
+  function refreshSelectedGenre(id: number) {
+    api.get<IGenre>(`genres/${id}`).then((response) => {
+      setSelectedGenre(response.data);
+    });
+  }
+
+  useEffect(() => {
+    fetchGenres();
   }, []);
 
   useEffect(() => {
-    api.get<MovieProps[]>(`movies/?Genre_id=${selectedGenreId}`).then(response => {
-      setMovies(response.data);
-    });
-
-    api.get<GenreResponseProps>(`genres/${selectedGenreId}`).then(response => {
-      setSelectedGenre(response.data);
-    })
+    fetchMoviesByGenre(selectedGenreId);
+    refreshSelectedGenre(selectedGenreId);
   }, [selectedGenreId]);
 
-  function handleClickButton(id: number) {
+  const handleSelectedGenre = useCallback((id) => {
     setSelectedGenreId(id);
-  }
+  }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row' }}>
-      <nav className="sidebar">
-        <span>Watch<p>Me</p></span>
-
-        <div className="buttons-container">
-          {genres.map(genre => (
-            <Button
-              key={String(genre.id)}
-              title={genre.title}
-              iconName={genre.name}
-              onClick={() => handleClickButton(genre.id)}
-              selected={selectedGenreId === genre.id}
-            />
-          ))}
-        </div>
-
-      </nav>
-
-      <div className="container">
-        <header>
-          <span className="category">Categoria:<span> {selectedGenre.title}</span></span>
-        </header>
-
-        <main>
-          <div className="movies-list">
-            {movies.map(movie => (
-              <MovieCard key ={movie.imdbID} title={movie.Title} poster={movie.Poster} runtime={movie.Runtime} rating={movie.Ratings[0].Value} />
-            ))}
-          </div>
-        </main>
-      </div>
+    <div style={{ display: "flex", flexDirection: "row" }}>
+      <SideBar genres={genres} onSelectedGenre={handleSelectedGenre} />
+      <Content movies={movies} headerTitle={selectedGenre.title} />
     </div>
-  )
+  );
 }
